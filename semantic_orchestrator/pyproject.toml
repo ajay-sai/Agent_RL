@@ -1,0 +1,42 @@
+[project]
+name = "semantic-orchestrator"
+version = "0.1.0"
+description = "Semantic Data Orchestrator using Agent Lightning"
+requires-python = ">=3.10"
+dependencies = [
+    "agentlightning>=0.3.0",
+    "openai>=2.0.0",
+    "chromadb>=1.5.0",
+    "neo4j>=5.0.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "torch>=2.0.0",  # CPU-only PyTorch for RL
+    "sentence-transformers>=2.0.0",
+    "langchain>=0.1.0",
+    "langchain-community>=0.0.10",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "rich>=13.0.0",
+    "scikit-learn>=1.0.0",
+    "wandb>=0.16.0",
+    "matplotlib>=3.0.0",
+    "tabulate>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "ruff>=0.1.0",
+    "pyright>=1.1.0",
+]
+
+[project.scripts]
+semantic-orchestrator = "semantic_orchestrator.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

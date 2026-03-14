@@ -1,0 +1,43 @@
+# Storage configuration
+storage:
+  vector:
+    collection_name: "semantic_docs"
+    embedding_model: "all-MiniLM-L6-v2"
+    persist_directory: "./data/chroma"
+
+  graph:
+    uri: "bolt://localhost:7687"
+    username: "neo4j"
+    password: "password"
+
+  sql:
+    database: "./data/sqlite/semantic.db"
+
+# Router configuration
+router:
+  model: "google/gemma-7b-it"  # OpenRouter model
+  temperature: 0.1
+  max_tokens: 100
+
+# RL training configuration
+rl:
+  algorithm: "reinforce"  # or "ppo"
+  learning_rate: 1e-4
+  gamma: 0.99
+  batch_size: 4
+  num_epochs: 50
+
+# Data paths
+data:
+  raw_dir: "./data/raw"
+  processed_dir: "./data/processed"
+  queries_train: "./data/queries/train.jsonl"
+  queries_val: "./data/queries/val.jsonl"
+  queries_test: "./data/queries/test.jsonl"
+
+# Experiment tracking
+logging:
+  wandb_project: "agent-lightning-semantic"
+  wandb_entity: null  # set to your username
+  log_dir: "./logs"
+  level: "INFO"

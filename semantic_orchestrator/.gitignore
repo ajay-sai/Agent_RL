@@ -31,7 +31,9 @@ coverage.xml
 # Project specific
 data/raw/
 data/processed/
-embeddings_cache/
+data/chroma/
+data/sqlite/
+data/embeddings_cache/
 models/
 *.db
 *.sqlite

@@ -1,0 +1,248 @@
+"""Command-line interface for semantic orchestrator."""
+import argparse
+import sys
+from pathlib import Path
+
+from .config import load_config
+from .router import RouterAgent
+from .synthesis import SynthesisAgent
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Main CLI entrypoint."""
+    parser = argparse.ArgumentParser(
+        description="Semantic Orchestrator - RL Router Training & Inference"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Train command
+    train_parser = subparsers.add_parser("train", help="Train the router policy")
+    train_parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to config YAML file",
+    )
+    train_parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="Number of training epochs (overrides config)",
+    )
+    train_parser.add_argument(
+        "--lr",
+        type=float,
+        default=None,
+        help="Learning rate (overrides config)",
+    )
+    train_parser.add_argument(
+        "--reward-scale",
+        type=float,
+        default=None,
+        help="Reward scale factor (overrides config)",
+    )
+    train_parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility (default: 42)",
+    )
+    train_parser.add_argument(
+        "--train-data",
+        type=str,
+        default=None,
+        help="Path to training data JSONL (overrides config)",
+    )
+    train_parser.add_argument(
+        "--val-data",
+        type=str,
+        default=None,
+        help="Path to validation data JSONL (overrides config)",
+    )
+    train_parser.add_argument(
+        "--wandb-project",
+        type=str,
+        default=None,
+        help="WandB project name (overrides config)",
+    )
+    train_parser.add_argument(
+        "--wandb-entity",
+        type=str,
+        default=None,
+        help="WandB entity (overrides config)",
+    )
+    train_parser.add_argument(
+        "--save-dir",
+        type=str,
+        default=None,
+        help="Directory to save checkpoints (overrides config)",
+    )
+    train_parser.add_argument(
+        "--k",
+        type=int,
+        default=10,
+        help="Number of documents to retrieve per backend (default: 10)",
+    )
+    train_parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to use (cpu/cuda, overrides config detection)",
+    )
+
+    # Evaluate command
+    eval_parser = subparsers.add_parser("evaluate", help="Evaluate trained router")
+    eval_parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to config YAML file",
+    )
+    eval_parser.add_argument(
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="Path to router checkpoint (.pt file)",
+    )
+    eval_parser.add_argument(
+        "--test-data",
+        type=str,
+        default=None,
+        help="Path to test data JSONL (overrides config)",
+    )
+    eval_parser.add_argument(
+        "--k",
+        type=int,
+        default=10,
+        help="Number of documents to retrieve per backend (default: 10)",
+    )
+    eval_parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to use (cpu/cuda)",
+    )
+
+    # Inference command (optional - for interactive testing)
+    infer_parser = subparsers.add_parser("infer", help="Run inference with trained router")
+    infer_parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to config YAML file",
+    )
+    infer_parser.add_argument(
+        "--checkpoint",
+        type=str,
+        required=True,
+        help="Path to router checkpoint (.pt file)",
+    )
+    infer_parser.add_argument(
+        "--query",
+        type=str,
+        default=None,
+        help="Query string (if not provided, reads from stdin)",
+    )
+    infer_parser.add_argument(
+        "--k",
+        type=int,
+        default=10,
+        help="Number of documents to retrieve per backend (default: 10)",
+    )
+    infer_parser.add_argument(
+        "--device",
+        type=str,
+        default=None,
+        help="Device to use (cpu/cuda)",
+    )
+
+    args = parser.parse_args(argv)
+
+    if not args.command:
+        parser.print_help()
+        return 1
+
+    # Load config
+    config = load_config(args.config)
+
+    # Determine device
+    device = args.device if args.device else ("cuda" if __import__('torch').cuda.is_available() else "cpu")
+
+    if args.command == "train":
+        # Initialize router
+        router = RouterAgent(config_path=args.config, device=device)
+
+        # Train
+        router.train(
+            train_data_path=args.train_data,
+            val_data_path=args.val_data,
+            epochs=args.epochs,
+            learning_rate=args.lr,
+            reward_scale=args.reward_scale,
+            seed=args.seed,
+            wandb_project=args.wandb_project,
+            wandb_entity=args.wandb_entity,
+            save_dir=args.save_dir,
+            k=args.k,
+        )
+
+    elif args.command == "evaluate":
+        # Initialize router and load checkpoint
+        router = RouterAgent(config_path=args.config, device=device)
+        print(f"Loading checkpoint from {args.checkpoint}")
+        router.load(args.checkpoint)
+
+        # Evaluate
+        metrics = router.evaluate(
+            test_data_path=args.test_data,
+            k=args.k,
+        )
+        # Print metrics in JSON format for programmatic access
+        print("\n=== METRICS ===")
+        import json
+        print(json.dumps(metrics, indent=2))
+
+    elif args.command == "infer":
+        # Initialize router and load checkpoint
+        router = RouterAgent(config_path=args.config, device=device)
+        print(f"Loading checkpoint from {args.checkpoint}")
+        router.load(args.checkpoint)
+
+        # Get query
+        query = args.query
+        if not query:
+            print("Enter query (Ctrl+D to quit): ")
+            try:
+                query = sys.stdin.readline().strip()
+            except (KeyboardInterrupt, EOFError):
+                return 0
+
+        if not query:
+            print("Error: empty query", file=sys.stderr)
+            return 1
+
+        # Get router decision
+        from .retrieval.retrievers import create_retriever_for_backend
+        from .types import BackendConfig
+
+        plan = router.decide(query, eval_mode=True)
+        print(f"\nSelected backends: {[b.value for b in plan.backends]}")
+
+        # Execute retrieval and show top results
+        print("\nRetrieved documents:")
+        for backend in plan.backends:
+            config = config.storage.vector if backend.value == "vector" else \
+                     config.storage.graph if backend.value == "graph" else \
+                     config.storage.sql
+            retriever = create_retriever_for_backend(backend, config)
+            results = retriever.search(query, k=args.k)
+            print(f"\n  {backend.value.upper()}:")
+            for r in results[:5]:  # Show top 5 per backend
+                print(f"    [{r.score:.3f}] {r.document_id}: {r.content[:100]}...")
+            retriever.close()
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

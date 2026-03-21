@@ -1,0 +1,78 @@
+version: '3.8'
+
+# ============================================================================
+# Semantic Orchestrator Infrastructure
+# ============================================================================
+# This docker-compose file sets up the required infrastructure for the
+# semantic orchestrator application, including Neo4j graph database.
+#
+# Services:
+#   - Neo4j: Graph database for knowledge graph storage
+#
+# Usage:
+#   docker compose up -d          # Start services
+#   docker compose down          # Stop services
+#   docker compose logs -f       # View logs
+#   docker compose down -v       # Stop and remove volumes
+# ============================================================================
+
+services:
+  # Neo4j Graph Database
+  # Provides graph database capabilities for knowledge graph construction
+  neo4j:
+    image: neo4j:5.15.0
+    container_name: semantic-orchestrator-neo4j
+    ports:
+      # Bolt protocol for application connectivity
+      - "7687:7687"
+      # HTTP API and Neo4j Browser interface
+      - "7474:7474"
+    environment:
+      # Authentication credentials - can be overridden via .env file
+      # Default values match config.yaml expectations
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/password}
+      # Enable Neo4j Browser (optional, useful for debugging)
+      - NEO4J_dbms_connector_http_advertised_address=localhost:7474
+      - NEO4J_dbms_connector_bolt_advertised_address=localhost:7687
+    volumes:
+      # Persistent graph database data
+      - neo4j_data:/data
+      # Import directory for bulk data loading
+      - neo4j_import:/var/lib/neo4j/import
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - semantic_orch
+    restart: unless-stopped
+
+# ============================================================================
+# Volume Definitions
+# ============================================================================
+# These named volumes persist data across container restarts and updates.
+#
+# Volumes:
+#   - neo4j_data:     Graph database storage (nodes, relationships, indexes)
+#   - neo4j_import:   Import directory for CSV/bulk data operations
+# ============================================================================
+
+volumes:
+  neo4j_data:
+    name: semantic_orchestrator_neo4j_data
+  neo4j_import:
+    name: semantic_orchestrator_neo4j_import
+
+# ============================================================================
+# Network Configuration
+# ============================================================================
+# Custom bridge network for service isolation and communication.
+# If not already created, Docker Compose will create it automatically.
+# ============================================================================
+
+networks:
+  semantic_orch:
+    name: semantic_orchestrator_network
+    driver: bridge

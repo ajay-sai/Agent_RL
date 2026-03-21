@@ -1,0 +1,65 @@
+# Docker ignore file for semantic_orchestrator project
+# =====================================================
+# This file specifies files and directories to ignore when
+# building Docker images or working with Docker Compose.
+#
+# Structure:
+#   - Data directories that should not be committed
+#   - Local environment overrides
+#   - Generated files and temporary data
+# =====================================================
+
+# Local Docker overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Persistent data directories (mounted volumes)
+data/
+logs/
+.venv/
+
+# Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Development and build artifacts
+dist/
+build/
+*.egg-info/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
